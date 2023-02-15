@@ -1,0 +1,6 @@
+45 * * * * /home/cdlapp/ingestion/adobe_incr/adobe_script.sh
+0 * * * * sh /data/CTL/ingest/latis/script/latis_sftp_hdfs_ingestion.sh
+0 12 * * * /home/cdlapp/ingestion/motive_acs_incr_W/motive_acs_ingest.sh
+16 12 * * * /home/b2bapp/b2b/cross_upsell_model/jobrun.sh
+0 12 * * * /home/cdlapp/ingestion/walled_garden_incr_W/walled_garden_daily_ingest.sh
+0 0 * * * /home/cdlapp/build/Util/password_watchdog/watchdog.sh

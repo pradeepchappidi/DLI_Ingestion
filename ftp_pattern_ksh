@@ -1,0 +1,363 @@
+#############################################################################################################################################################
+#  Script Shell : bash
+#  Script       : ftp_ingest.sh
+#  
+#  Description  : FTP Pattern for HDFS Ingestion
+#                 The script watches a particular directory for a specific files and ingests them every 30 mins
+#
+#  Author       : Pradeep Chappidi
+#
+#############################################################################################################################################################
+
+#!/bin/bash
+#set -x
+
+
+#########################################  usage display #########################################
+
+usage()
+{
+    echo "USAGE: ftp_pattern_ksh FTP_SOURCE_NAME FTP_SOURCE_DIR HDFS_TARGET_DIR SCREEN_AND_LOG "
+    echo "FTP_SOURCE_NAME like drp, media_room etc like what is the name of source"
+    echo "FTP_SOURCE_DIR  this is like, where to pick the source ftp files from. which dir they are pushed from source system"
+    echo "HDFS_TARGET_DIR which dir in HDFS cluster we want to push the files at"
+    echo "progess status info type LOG, EMAIL or SCREEN_AND_LOG"
+
+}
+
+
+######################################### checks made for if directory exists in HDFS or UNIX #########################################
+check_dir_exists()
+{
+  given_dir=$1
+  given_test=$2
+  given_type=$3
+
+   
+
+  #### check for UNIX type #####
+  if [ ${given_type} = 'UNIX_DIR' ]; then
+    
+    if [ ${given_test} = 'VALIDATE'  ]; then
+      
+       if test ! -d ${given_dir}
+         then
+           echo " Failed : provided Dir ${given_dir}  does not exists ";
+           exit 1;
+       fi
+
+    elif [ ${given_test} = 'NOT_EXISTS_CREATE' ]; then
+        if test ! -d ${given_dir}
+         then
+           mkdir -p ${given_dir}
+         fi
+    else
+       echo " Failed : provided option  ${given_test} on ${given_type} is not valid in function";   
+    fi 
+   
+  
+  ### check for HDFS type  ###
+  elif [ ${given_type} = 'HDFS_DIR' ]; then
+
+   if [ ${given_test} = 'VALIDATE'  ]; then
+
+       hdfs dfs -test -d ${given_dir}
+       if [ $? != 0 ]; then
+           echo " Failed : provided Dir ${given_dir} on ${given_type} does not exists in HDFS  ";
+           exit 1;
+       fi
+   elif [ ${given_test} = 'NOT_EXISTS_CREATE' ]; then      
+        hdfs dfs -test -d ${given_dir}
+        if [ $? != 0 ]; then
+           hdfs dfs -mkdir ${given_dir}
+         fi
+    else
+       echo " Failed : provided option  ${given_test} on ${given_type} is not valid in function";
+    fi
+
+   
+  else
+    echo " Failed: provided Dir check system type ${given_type} is not a valid one ";
+  fi 
+   
+}
+
+######################################### do you like to Email or LOG messages #########################################
+msg_email_or_log()
+{
+
+EMAIL_SUB="CDH_DEV_${SCRIPT_NAME}_failed_@_${DATETIME}"
+#EMAIL_ID="IT-DATALAKE-DEV@centurylink.com"
+EMAIL_ID="pradeep.chappidi@centurylink.com"
+
+option=$1
+msg=$2
+
+if [ ${option} = "LOG" ]; then 
+   echo ${msg} >> ${log} 
+elif [ ${option} = "MAIL" ]; then
+   echo ${msg} | mail -s ${EMAIL_SUB} ${EMAIL_ID} 
+else
+   echo ${msg} >> ${log}
+   echo ${msg}
+fi
+
+}
+
+
+
+
+######################################### Loop through the landing zone and move files to staging and unzip  ###################################################
+move_to_statging_from_landing()
+{
+   lcl_file_name=${1}
+   lcl_landing_dir=${2}
+   lcl_statging_dir=${3}
+   lcl_email_log_option=${4}
+    
+     echo "Begin processing file name: ${lcl_file_name}" >> ${log}
+     cp ${lcl_landing_dir}/${lcl_file_name}* ${staging_dir}
+     if [ $? -eq 0 ]
+      then
+        
+        MSG="mv ${lcl_landing_dir}/${lcl_file_name}* ${lcl_statging_dir} completed successfully"
+        msg_email_or_log ${lcl_email_log_option} "${MSG}"
+        
+     else
+        MSG="mv ${lcl_landing_dir}/${lcl_file_name}* ${lcl_statging_dir} failed with non zero return code. Terminating"
+        msg_email_or_log ${lcl_email_log_option} "${MSG}"
+        exit 1
+     fi
+
+     gzip -d ${lcl_statging_dir}/${lcl_file_name}
+     if [ $? -eq 0 ]
+      then
+        MSG="gzip -d ${lcl_statging_dir}/${lcl_file_name}.gz completed successfully" 
+        msg_email_or_log ${lcl_email_log_option} "${MSG}"
+     else
+        MSG="gzip -d ${lcl_statging_dir}/${lcl_file_name}.gz failed with non zero return code. Terminating"
+        msg_email_or_log ${lcl_email_log_option} "${MSG}"
+        exit 1
+     fi
+
+     rm -f ${lcl_statging_dir}/${lcl_file_name}_flag
+     if [ $? -eq 0 ]
+     then
+        echo "rm -f ${lcl_file_name}_flag completed successfully" >> ${log}
+     else
+        MSG="rm -f ${lcl_file_name}_flag failed with non zero return code. Terminating"
+        msg_email_or_log ${lcl_email_log_option} "${MSG}"
+        exit 1
+     fi
+
+}
+
+
+######################### Combining the DAT files into a bigger file   ############################################################
+
+merge_files()
+{
+ 
+   lcl_staging_dir=${1}
+   lcl_email_log_option=${2}
+   lcl_concat_file=${3}
+
+
+ cat ${lcl_staging_dir}/* > ${lcl_staging_dir}/${lcl_concat_file}
+ if [ $? -ne 0 ]
+  then
+     MSG="cat ${lcl_staging_dir}/* > ${lcl_staging_dir}/${lcl_concat_file} failed. Non zero returned code"
+     msg_email_or_log ${lcl_email_log_option} "${MSG}"
+     exit 1
+  fi
+ echo "cat ${staging_dir}/* > ${staging_dir}/${lcl_concat_file} complete" >> ${log}
+
+}
+
+
+
+####################### Create the HDFS partition directory ###########################################################
+create_hdfs_partition()
+{
+   
+   lcl_email_log_option=${1}
+   lcl_hdfs_dir=${2}
+
+   hdfs dfs -mkdir -p ${lcl_hdfs_dir}
+   if [ $? -ne 0 ]
+    then
+      MSG="hdfs dfs -mkdir -p ${lcl_hdfs_dir} failed. Non zero returned code"
+      msg_email_or_log ${lcl_email_log_option} "${MSG}"
+      exit 1
+   fi
+   echo "hdfs dfs -mkdir -p ${lcl_hdfs_dir} complete" >> ${log}
+
+}
+
+
+
+
+####################### Ingest the file into HDFS ##########################################################
+move_combined_file_to_hdfs()
+{
+   lcl_statging_dir={1}
+   lcl_email_log_option=${2}
+   lcl_hdfs_dir=${3}
+   lcl_concat_file=${4}
+
+   hdfs dfs -put ${lcl_staging_dir}/${lcl_concat_file} ${lcl_hdfs_dir}
+   if [ $? -ne 0 ]
+    then
+       MSG="hdfs dfs -put ${lcl_staging_dir}/${lcl_concat_file} ${lcl_hdfs_dir} failed. Non zero returned code"
+       msg_email_or_log ${lcl_email_log_option} "${MSG}"
+    exit 1
+   fi
+  echo "hdfs dfs -put ${lcl_staging_dir}/${lcl_concat_file} ${lcl_hdfs_dir} complete" >> ${log}
+}
+
+
+###################### Remove all local files from staging directory #######################################
+remove_files_from_staging_dir()
+{
+   lcl_statging_dir={1}
+   lcl_email_log_option=${2}
+   
+   rm -f ${lcl_staging_dir}/*
+   if [ $? -ne 0 ]
+    then
+       MSG="rm -f ${lcl_staging_dir}/* failed. Non zero returned code"
+       msg_email_or_log ${lcl_email_log_option} "${MSG}"
+    exit 1
+   fi
+   echo "rm -f ${lcl_staging_dir}/* complete" >> ${log}
+}
+
+
+################################################## This Section prevents duplicate execution of the script ####################################################
+check_if_a_process_exists()
+{
+  lcl_pid_dir=${1}
+  lcl_email_log_option=${2}
+  lcl_script=${3}
+
+  PIDFILE=${lcl_pid_dir}/${lcl_script}.pid
+  ##### this echo will be used as a return value to the calling function ###
+  echo ${PIDFILE}  
+  if [ -f ${PIDFILE} ]
+  then
+     PID=$(cat ${PIDFILE})
+     ps -p $PID > /dev/null 2>&1
+     if [ $? -eq 0 ]
+     then
+
+       MSG="${lcl_script} already executing with process ID - ${PID} .process ID found using ps -p. Terminating"
+       msg_email_or_log ${lcl_email_log_option} "${MSG}"
+       exit 1
+
+     else
+
+       MSG="${lcl_script} already executing with process ID - ${PID} .But process ID not found using ps -p. Terminating"
+       msg_email_or_log ${lcl_email_log_option} "${MSG}"
+       exit 1
+     fi
+ else
+     echo $$ > ${PIDFILE}
+     echo "Process ID" >> ${log}
+     echo $$ >> ${log}
+     if [ $? -ne 0 ]
+      then
+
+        MSG="${lcl_script} unable to create process ID lock file. Terminating"
+        msg_email_or_log ${lcl_email_log_option} "${MSG}"
+        exit 1
+     fi
+ fi
+}
+
+
+
+############################################## This section controls all  logic ########################################################
+
+if [[ "$#" -ne 4 ]]; then
+    usage
+    exit 1
+else
+
+   SCRIPT_NAME=`basename "$0"`
+
+   #SFTP_HOME_DIR=/data/CTL/ingest
+   SFTP_INGEST_SOURCE=$1
+   SFTP_INGEST_DIR=$2
+   HDFS_LOC=$3
+   EMAIL_LOG_OPTION=$4
+   
+   
+   SFTP_HOME_DIR=${SFTP_INGEST_DIR} 
+   
+
+   DATETIME=`date '+%y%m%d_%H%M%S'`
+   DATE=`date '+%Y%m%d'`
+   
+   pid_dir=${SFTP_HOME_DIR}/${SFTP_INGEST_SOURCE}/script
+   log_dir=${SFTP_HOME_DIR}/${SFTP_INGEST_SOURCE}/log
+   staging_dir=${SFTP_HOME_DIR}/${SFTP_INGEST_SOURCE}/staging
+   landing_dir=${SFTP_INGEST_DIR}
+
+   hdfs_dir=${HDFS_LOC}/dt=${DATE}
+   concat_file=${SFTP_INGEST_SOURCE}_${DATETIME}.dat
+
+   log=${log_dir}/${SCRIPT_NAME}_${DATETIME}.log
+ 
+
+   ####### validate the dir exists or not and create if needed ####
+   check_dir_exists ${SFTP_HOME_DIR} VALIDATE  UNIX_DIR
+   check_dir_exists ${SFTP_INGEST_DIR} VALIDATE  UNIX_DIR
+   check_dir_exists ${pid_dir} NOT_EXISTS_CREATE UNIX_DIR
+   check_dir_exists ${log_dir} NOT_EXISTS_CREATE  UNIX_DIR
+   check_dir_exists ${staging_dir} NOT_EXISTS_CREATE UNIX_DIR
+   check_dir_exists ${landing_dir} NOT_EXISTS_CREATE UNIX_DIR
+   
+   ###### check if HDFS dir exists or not ###
+   check_dir_exists ${HDFS_LOC} NOT_EXISTS_CREATE HDFS_DIR
+   
+    
+fi
+
+
+
+echo "Starting execution of ${SCRIPT_NAME} @ ${DATETIME}" >> ${log}
+echo "SFTP_HOME_DIR ${SFTP_HOME_DIR} "
+echo "SFTP_INGEST_SOURCE ${SFTP_INGEST_SOURCE}"
+echo "SFTP_INGEST_DIR ${SFTP_INGEST_DIR} "
+echo "HDFS_LOC ${HDFS_LOC} "
+echo "pid_dir ${pid_dir} "
+echo "log_dir ${log_dir} " 
+echo "staging_dir ${staging_dir} "
+echo "landing_dir ${landing_dir} "
+echo "hdfs_dir ${hdfs_dir} "
+echo "concat_file ${concat_file} "
+echo "log ${log} "
+
+for file_name in `ls -lrt ${landing_dir}/*.gz* | awk '{print $9}' `
+do
+ move_to_statging_from_landing `basename ${file_name}`  ${landing_dir} ${staging_dir} ${EMAIL_LOG_OPTION}
+done
+
+ ### we are calling the check process and getting the return value as a subshell #####
+ RTN_PIDFILE=$(check_if_a_process_exists ${pid_dir} ${EMAIL_LOG_OPTION} ${SCRIPT_NAME}) 
+ 
+ ### as the above call is a subprocess the exit status from inside the function is not captures for the ######
+ ### this main process, so any errors we capture and exit ######
+ if [ $? -ne 0 ]
+      then 
+      exit 1;
+ fi
+ #echo "status $? "  
+ #echo "RTN_PIDFILE ${RTN_PIDFILE} "  
+
+ merge_files ${staging_dir} ${EMAIL_LOG_OPTION} ${concat_file}
+ create_hdfs_partition ${EMAIL_LOG_OPTION} ${hdfs_dir}
+ move_combined_file_to_hdfs ${staging_dir} ${EMAIL_LOG_OPTION} ${hdfs_dir} ${concat_file}
+ remove_files_from_staging_dir ${staging_dir} ${EMAIL_LOG_OPTION}
+
+ rm -f ${RTN_PIDFILE}

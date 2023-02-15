@@ -1,0 +1,43 @@
+Starting execution of ftp_pattern_ksh @ 170905_113831
+Begin processing file name: VRP_VOCH21IL0320170340103.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOCH21IL0320170340103.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOCH21IL0320170340103.DAT.gz.gz completed successfully
+rm -f VRP_VOCH21IL0320170340103.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOCH21IL03201703409ZZ.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOCH21IL03201703409ZZ.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOCH21IL03201703409ZZ.DAT.gz.gz completed successfully
+rm -f VRP_VOCH21IL03201703409ZZ.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOFR11GA0220170061BF1.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOFR11GA0220170061BF1.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOFR11GA0220170061BF1.DAT.gz.gz completed successfully
+rm -f VRP_VOFR11GA0220170061BF1.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOFR11GA04201700612F8.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOFR11GA04201700612F8.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOFR11GA04201700612F8.DAT.gz.gz completed successfully
+rm -f VRP_VOFR11GA04201700612F8.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOFR11GA04201700612F9.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOFR11GA04201700612F9.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOFR11GA04201700612F9.DAT.gz.gz completed successfully
+rm -f VRP_VOFR11GA04201700612F9.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOIP11IN052017013060F.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOIP11IN052017013060F.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOIP11IN052017013060F.DAT.gz.gz completed successfully
+rm -f VRP_VOIP11IN052017013060F.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOKS11MO1020170130250.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOKS11MO1020170130250.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOKS11MO1020170130250.DAT.gz.gz completed successfully
+rm -f VRP_VOKS11MO1020170130250.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOWA11DC06201700605D3.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOWA11DC06201700605D3.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOWA11DC06201700605D3.DAT.gz.gz completed successfully
+rm -f VRP_VOWA11DC06201700605D3.DAT.gz_flag completed successfully
+Begin processing file name: VRP_VOWA11DC06201700605D4.DAT.gz
+mv /home/PXCHAPP/DLI/FTP/VRP_VOWA11DC06201700605D4.DAT.gz /home/PXCHAPP/DLI/FTP/media/staging completed successfully
+gzip -d /home/PXCHAPP/DLI/FTP/media/staging/VRP_VOWA11DC06201700605D4.DAT.gz.gz completed successfully
+rm -f VRP_VOWA11DC06201700605D4.DAT.gz_flag completed successfully
+Process ID
+1897
+cat /home/PXCHAPP/DLI/FTP/media/staging/* > /home/PXCHAPP/DLI/FTP/media/staging/media_170905_113831.dat complete
+hdfs dfs -mkdir -p /user/pxchapp/FTP/dt=20170905 complete
+hdfs dfs -put /home/PXCHAPP/DLI/FTP/media/staging/media_170905_113831.dat /user/pxchapp/FTP/dt=20170905 complete
+rm -f /home/PXCHAPP/DLI/FTP/media/staging/* complete

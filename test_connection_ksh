@@ -1,0 +1,85 @@
+
+RDBMS_TestConnection()
+{
+lcl_CONNECTION_STR="$1"
+lcl_USERNAME="$2"
+lcl_PASSWORD="$3"
+lcl_QRY_STR="$4"
+
+
+### here we check if the connection is good and send the logging of the command to null, but will capture the status of the command
+sqoop eval  --connect ${lcl_CONNECTION_STR} --username ${lcl_USERNAME} --password ${lcl_PASSWORD} --query " ${lcl_QRY_STR} " &>/dev/null
+RC=$?
+
+if [[ $RC -ne 0 ]]; then
+    echo " Issues with connection information "
+    echo " provided data is "
+    echo " Connection info : ${CONNECTION_STR} "
+    echo " username : ${USERNAME} "
+    echo " password : ${PASSWORD} "
+    return 1
+else
+    return 0
+fi
+
+}
+ORACLE_conn_info_ask()
+{
+ echo " jdbc:oracle:thin:@//NNMADH01DB.QINTRA.COM:1533/nnmadh01 "
+ echo " provide connection information like shown above"
+ read CONNECTION_STR;
+
+ echo;
+ echo " username "
+ read USERNAME;
+
+ echo;
+ echo " password "
+ read PASSWORD
+
+}
+
+ORACLE_test_conn()
+{
+
+QRY_STR='select count(1) from dual '
+RDBMS_TestConnection  "${1}" "${2}" "${3}" "${QRY_STR}"
+RC=$?
+if [[ $RC -ne 0 ]]; then
+   return 1;
+else
+   return 0;
+fi
+
+}
+
+
+ORACLE_conn_info_ask
+ORACLE_test_conn ${CONNECTION_STR} ${USERNAME} ${PASSWORD}
+
+Oracle_Test=$?
+TRY_CHECK=Y
+
+while [ ${Oracle_Test} -ne 0 ] && [ ${TRY_CHECK} = "Y" ]
+        do
+
+        if [[ $Oracle_Test -ne 0 ]]; then
+            echo " do you like to try the connection informaiton  one more time [Y/N]"
+            read TRY_CHECK
+
+            if [ ${TRY_CHECK} = "Y" ]; then
+                ORACLE_conn_info_ask
+
+                echo "testing connection "
+                ORACLE_test_conn ${CONNECTION_STR} ${USERNAME} ${PASSWORD}
+           else
+             TRY_CHECK='N'
+
+           fi
+        else
+           TRY_CHECK='N'
+           Oracle_Test=0
+        fi
+
+        done
+
